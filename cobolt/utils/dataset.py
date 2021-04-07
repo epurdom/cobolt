@@ -4,12 +4,13 @@ from scipy import sparse
 import random
 import torch
 from torch.utils.data import DataLoader
+from cobolt.utils import MultiData
 
 
 class MultiomicDataset(torch.utils.data.Dataset):
-    def __init__(self, dt):
-        self.dt = dt
-        self.omic = list(dt.keys())
+    def __init__(self, dt: MultiData):
+        self.dt = dt._get_data()
+        self.omic = list(self.dt.keys())
         self.barcode = self._get_unique_barcode()
         self.n_dataset = [np.unique(self.dt[om]['dataset']).shape[0] for om in self.omic]
         b_dict = {om: {b: i for i, b in enumerate(self.dt[om]['barcode'])} for om in self.omic}
