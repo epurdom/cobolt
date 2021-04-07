@@ -21,8 +21,6 @@ def xavier_init(fan_in, fan_out, constant=1):
 
 class CoboltModel(nn.Module):
 
-    # num_iter = 0  # Global static variable to keep track of iterations
-
     def __init__(self,
                  in_channels: List,
                  latent_dim: int,

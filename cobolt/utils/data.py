@@ -67,6 +67,11 @@ class SingleData(object):
         self.barcode = self.barcode[bool_quality]
         self.count = self.count[bool_quality, :]
 
+    def filter_barcode(self, cells):
+        bool_cells = np.isin(self.barcode, cells)
+        self.count = self.count[bool_cells, ]
+        self.barcode = self.barcode[bool_cells]
+
     def _get_data(self):
         return {self.feature_name: self.count}, {self.feature_name: self.feature}, self.barcode
 
