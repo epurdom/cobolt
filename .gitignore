@@ -1,0 +1,4 @@
+.DS_Store
+.idea/
+.pytest_cache/
+*_cache
