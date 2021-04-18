@@ -1,5 +1,6 @@
 
 from cobolt.utils import SingleData, MultiData, MultiomicDataset
+from cobolt.model import Cobolt
 import os
 import pandas as pd
 
@@ -42,3 +43,10 @@ mop_atac.filter_features(upper_quantile=0.99, lower_quantile=0.7)
 
 all_data = MultiData(mop_mrna, mop_atac, snare_atac, snare_mrna)
 multi_dt = MultiomicDataset(all_data)
+
+model = Cobolt(dataset=multi_dt, n_latent=10)
+model.train(num_epochs=5)
+
+latent = model.get_latent()
+latent_prop = model.get_topic_prop()
+
