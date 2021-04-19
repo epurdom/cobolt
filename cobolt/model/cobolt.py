@@ -15,6 +15,7 @@ from torch.utils.data import DataLoader, Subset, SubsetRandomSampler
 
 from typing import List
 
+
 class Cobolt:
 
     def __init__(self,
@@ -97,12 +98,20 @@ class Cobolt:
                 raise ValueError("DIVERGED. Try a smaller learning rate.")
 
     def get_latent(self, omic_combn, data="train", return_barcode=False):
-        return self._get_latent_helper(omic_combn, data, what="latent", return_barcode=return_barcode)
+        return self._get_latent_helper(
+            omic_combn, data, what="latent", return_barcode=return_barcode
+        )
 
     def get_topic_prop(self, omic_combn, data="train", return_barcode=False):
-        return self._get_latent_helper(omic_combn, data, what="topic_prop", return_barcode=return_barcode)
+        return self._get_latent_helper(
+            omic_combn, data, what="topic_prop", return_barcode=return_barcode
+        )
 
-    def _get_latent_helper(self, omic_combn, data="train", what="latent", return_barcode=False):
+    def _get_latent_helper(self,
+                           omic_combn,
+                           data="train",
+                           what="latent",
+                           return_barcode=False):
         if data == "train":
             sample_idx = self.train_idx
         elif data == "test":
@@ -171,7 +180,11 @@ class Cobolt:
             dt = np.vstack((dt, raw_dt))
             barcode = np.concatenate((barcode, raw_barcode))
             what.extend([x] * len(raw_barcode))
-        self.latent_raw = {"latent": dt, "barcode": barcode, "what": np.asarray(what)}
+        self.latent_raw = {
+            "latent": dt, 
+            "barcode": barcode,
+            "what": np.asarray(what)
+        }
 
     def get_all_latent(self, correction=True):
         if correction:
