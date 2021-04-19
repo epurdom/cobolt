@@ -2,6 +2,7 @@
 import numpy as np
 from scipy import sparse
 import random
+import itertools
 import torch
 from torch.utils.data import DataLoader
 from cobolt.utils.data import MultiData
@@ -30,6 +31,20 @@ class MultiomicDataset(torch.utils.data.Dataset):
                for om in self.omic]
         return dat, dataset
 
+    def __str__(self):
+        n_modality = len(self.omic)
+        s1 = "A MultiomicDataset object with {} omics:\n".format(n_modality)
+        s2 = "".join(["- {}: {} features, {} cells, {} batches.\n".format(
+            om, len(self.dt[om]['feature']), len(self.dt[om]['barcode']), self.n_dataset[i])
+            for i, om in enumerate(self.omic)])
+        s3 = "Joint cells:\n"
+        joint_omic = [list(i) for i in itertools.product([False, True], repeat=n_modality) if sum(i) > 1]
+        s4 = "".join(["- {}: {} cells.".format(
+            ", ".join([om for i, om in enumerate(self.omic) if om_combn[i]]),
+            len(self.get_comb_idx(om_combn)))
+            for om_combn in joint_omic])
+        return s1 + s2 + s3 + s4
+
     def _get_unique_barcode(self):
         barcode = np.concatenate([self.dt[om]['barcode'] for om in self.omic])
         return np.unique(barcode)
@@ -42,7 +57,7 @@ class MultiomicDataset(torch.utils.data.Dataset):
         b = bl[0]
         for x in bl[1:]:
             b = np.intersect1d(b, x)
-        return np.where(np.isin(self.barcode, b))
+        return np.where(np.isin(self.barcode, b))[0]
 
     def get_feature_shape(self):
         return [self.dt[om]['feature'].shape[0] for om in self.omic]
