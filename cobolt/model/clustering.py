@@ -32,7 +32,7 @@ class ClusterUtil:
             seed=seed,
             **kwargs
         )
-        self.cluster['leiden_{:.3f}'.format(1)] = partition.membership
+        self.cluster['leiden_{:.3f}'.format(resolution)] = partition.membership
 
     def get_clusters(self, algo="leiden", resolution=1):
         return self.cluster['{}_{:.3f}'.format(algo, resolution)]

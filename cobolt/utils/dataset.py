@@ -10,9 +10,10 @@ from cobolt.utils.data import MultiData
 
 class MultiomicDataset(torch.utils.data.Dataset):
     def __init__(self, dt: MultiData):
-        self.dt = dt._get_data()
+        self.dt = dt.get_data()
         self.omic = list(self.dt.keys())
         self.barcode = self._get_unique_barcode()
+        self.dataset = self._get_dataset()
         self.n_dataset = [np.unique(self.dt[om]['dataset']).shape[0] for om in self.omic]
         b_dict = {om: {b: i for i, b in enumerate(self.dt[om]['barcode'])} for om in self.omic}
         self.barcode_in_om = {om: {b: (b_dict[om][b] if b in b_dict[om] else None) for b in self.barcode}
@@ -45,9 +46,24 @@ class MultiomicDataset(torch.utils.data.Dataset):
             for om_combn in joint_omic])
         return s1 + s2 + s3 + s4
 
+    @classmethod
+    def from_singledata(cls, *single_data):
+        return cls(MultiData(*single_data))
+
     def _get_unique_barcode(self):
         barcode = np.concatenate([self.dt[om]['barcode'] for om in self.omic])
         return np.unique(barcode)
+
+    def _get_dataset(self):
+        dt_dict = {}
+        for om in self.omic:
+            dataset_names = [self.dt[om]['dataset_name'][int(i)] for i in self.dt[om]['dataset']]
+            for b, d in zip(self.dt[om]['barcode'], dataset_names):
+                if b not in dt_dict:
+                    dt_dict[b] = d
+                elif d != dt_dict[b]:
+                    raise ValueError("Duplicate barcode found: {}".format(b))
+        return dt_dict
 
     def get_barcode(self):
         return self.barcode

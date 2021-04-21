@@ -290,10 +290,12 @@ class Cobolt:
 
     def scatter_plot(self,
                      reduc="UMAP",
+                     algo="leiden",
+                     resolution=1,
                      correction=True,
                      annotation=None,
                      s=1,
-                     figsize=(8, 6)):
+                     figsize=(10, 5)):
         # TODO: add meta data
         if correction:
             use_reduc = self.reduction
@@ -304,19 +306,28 @@ class Cobolt:
             if "UMAP2" not in use_reduc or use_reduc["UMAP2"]["epoch"] != self.epoch:
                 self.run_UMAP(correction=correction)
             dt = use_reduc["UMAP2"]["embedding"]
+            barcode = use_reduc["UMAP2"]["barcode"]
         elif reduc == "tSNE":
             if "tSNE" not in use_reduc or use_reduc["tSNE"]["epoch"] != self.epoch:
                 self.run_tSNE(correction=correction)
             dt = use_reduc["tSNE"]["embedding"]
+            barcode = use_reduc["tSNE"]["barcode"]
         else:
             raise ValueError("Reduction must be UMAP or tSNE")
 
         if annotation is None:
-            annotation = self.get_clusters()
-            fig, ax = plt.subplots(figsize=figsize)
-            scatter1 = ax.scatter(dt[:, 0], dt[:, 1], c=annotation, s=s, cmap=matplotlib.cm.rainbow)
-            ax.legend(*scatter1.legend_elements(), loc="upper left", title="Cluster")
-            plt.show()
+            annotation = self.get_clusters(algo, resolution)
+            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
+            scatter1 = ax1.scatter(dt[:, 0], dt[:, 1], c=annotation, s=s, cmap=matplotlib.cm.rainbow)
+            ax1.legend(*scatter1.legend_elements(), loc="upper left", title="Cluster")
+            datasource = np.array([self.dataset.dataset[b] for b in barcode])
+            for i in np.unique(datasource):
+                mask = datasource == i
+                ax2.scatter(dt[mask, 0], dt[mask, 1], label=i, s=s)
+            ax2.legend(loc="upper left", title="Dataset")
+            fig.show()
+        else:
+            raise NotImplementedError
 
     def get_train_omic(self, sample=5):
         n_omic = len(self.dataset.omic)
