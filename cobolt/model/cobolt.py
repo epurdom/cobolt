@@ -2,6 +2,7 @@
 import numpy as np
 import os
 from scipy import sparse
+from tqdm import tqdm
 from sklearn.manifold import TSNE
 import random
 import itertools
@@ -24,7 +25,7 @@ class Cobolt:
                  dataset: MultiomicDataset,
                  n_latent: int,
                  device = None,
-                 lr: float = 0.001,
+                 lr: float = 0.005,
                  annealing_epochs: int = 30,
                  alpha: float = None,
                  hidden_dims: List = None,
@@ -83,8 +84,7 @@ class Cobolt:
             raise ValueError
 
     def train(self, num_epochs=100):
-        for epoch in range(1, num_epochs + 1):
-            print('.', end='')
+        for epoch in tqdm(range(1, num_epochs + 1)):
             if self.epoch < self.annealing_epochs:
                 annealing_factor = float(self.epoch) / float(self.annealing_epochs)
             else:
@@ -288,7 +288,12 @@ class Cobolt:
     def get_clusters(self, algo="leiden", resolution=1):
         return self.cluster_model.get_clusters(algo, resolution)
 
-    def scatter_plot(self, reduc="UMAP", correction=True, annotation=None, s=1):
+    def scatter_plot(self,
+                     reduc="UMAP",
+                     correction=True,
+                     annotation=None,
+                     s=1,
+                     figsize=(8, 6)):
         # TODO: add meta data
         if correction:
             use_reduc = self.reduction
@@ -308,13 +313,10 @@ class Cobolt:
 
         if annotation is None:
             annotation = self.get_clusters()
-
-        fig, ax = plt.subplots()
-
-        scatter1 = ax.scatter(dt[:, 0], dt[:, 1], c=annotation, cmap=matplotlib.cm.rainbow)
-        ax.legend(*scatter1.legend_elements(), loc="upper left", title="Classes1")
-
-        plt.show()
+            fig, ax = plt.subplots(figsize=figsize)
+            scatter1 = ax.scatter(dt[:, 0], dt[:, 1], c=annotation, s=s, cmap=matplotlib.cm.rainbow)
+            ax.legend(*scatter1.legend_elements(), loc="upper left", title="Cluster")
+            plt.show()
 
     def get_train_omic(self, sample=5):
         n_omic = len(self.dataset.omic)
