@@ -2,16 +2,22 @@
 import numpy as np
 import os
 from scipy import sparse
+from tqdm import tqdm
+from sklearn.manifold import TSNE
 import random
 import itertools
+from xgboost import XGBRegressor
+import numpy as np
 from cobolt.model.coboltmodel import CoboltModel
+from cobolt.model.clustering import ClusterUtil
 from cobolt.utils import MultiomicDataset
-
-import matplotlib.pyplot as plt
+import umap
 import torch
 from torch.utils.data import DataLoader, Subset, SubsetRandomSampler
-
+import matplotlib.pyplot as plt
+import matplotlib
 from typing import List
+
 
 class Cobolt:
 
@@ -19,7 +25,7 @@ class Cobolt:
                  dataset: MultiomicDataset,
                  n_latent: int,
                  device = None,
-                 lr: float = 0.001,
+                 lr: float = 0.005,
                  annealing_epochs: int = 30,
                  alpha: float = None,
                  hidden_dims: List = None,
@@ -37,6 +43,7 @@ class Cobolt:
         self.history = {"loss": []}
 
         self.dataset = dataset
+        self.n_latent = n_latent
         self.alpha = 50.0 / n_latent if alpha is None else alpha
         self.hidden_dims = [128, 64] if hidden_dims is None else hidden_dims
         self.model = CoboltModel(
@@ -53,9 +60,31 @@ class Cobolt:
         self.test_train_split(train_prop)
         self.train_omic = self.get_train_omic()
 
+        self.latent_raw = {}
+        self.latent = {}
+        self.reduction_raw = {}
+        self.reduction = {}
+        self.cluster_model = None
+
+    def __getitem__(self, item):
+        # TODO: to add this
+        if item == "latent":
+            return self.latent
+        elif item == "latent_raw":
+            return self.latent_raw
+        elif item == "umap":
+            return self.reduction
+        elif item == "tsne":
+            return self.reduction
+        elif item == "umap_raw":
+            return
+        elif item == "tsne_raw":
+            return
+        else:
+            raise ValueError
+
     def train(self, num_epochs=100):
-        for epoch in range(1, num_epochs + 1):
-            print('.', end='')
+        for epoch in tqdm(range(1, num_epochs + 1)):
             if self.epoch < self.annealing_epochs:
                 annealing_factor = float(self.epoch) / float(self.annealing_epochs)
             else:
@@ -70,11 +99,11 @@ class Cobolt:
                     sampler=SubsetRandomSampler(
                         np.intersect1d(self.dataset.get_comb_idx(omics), self.train_idx)
                     ))
+                this_size = len(np.intersect1d(self.dataset.get_comb_idx(omics), self.train_idx))
                 for x in dt_loader:
-                    x, omic_combn = x
                     # Forward pass
                     x = [[x_i.to(self.device) if x_i is not None else None for x_i in y] for y in x]
-                    latent_loss, recon_loss = self.model(x, elbo_combn=[omic_combn])
+                    latent_loss, recon_loss = self.model(x, elbo_combn=[omics])
                     # Backprop and optimize
                     loss = annealing_factor * latent_loss + recon_loss
                     self.optimizer.zero_grad()
@@ -83,25 +112,36 @@ class Cobolt:
 
                     this_loss.append(latent_loss.item() + recon_loss.item())
 
-            self.history['loss'].append(this_loss)
+            self.history['loss'].append(sum(this_loss)/this_size)
             self.epoch += 1
 
-            if np.isnan(self.history['loss'][-1].mean()):
-                raise ValueError("DIVERGED.")
+            if np.isnan(self.history['loss'][-1]):
+                raise ValueError("DIVERGED. Try a smaller learning rate.")
 
-    def get_latent(self, omic_combn, data="train"):
-        return self._get_latent_helper(omic_combn, data, what="latent")
+    def get_latent(self, omic_combn, data="train", return_barcode=False):
+        return self._get_latent_helper(
+            omic_combn, data, what="latent", return_barcode=return_barcode
+        )
 
-    def get_topic_prop(self, omic_combn, data="train"):
-        return self._get_latent_helper(omic_combn, data, what="topic_prop")
+    def get_topic_prop(self, omic_combn, data="train", return_barcode=False):
+        return self._get_latent_helper(
+            omic_combn, data, what="topic_prop", return_barcode=return_barcode
+        )
 
-    def _get_latent_helper(self, omic_combn, data="train", what="latent"):
+    def _get_latent_helper(self,
+                           omic_combn,
+                           data="train",
+                           what="latent",
+                           return_barcode=False):
         if data == "train":
             sample_idx = self.train_idx
         elif data == "test":
             sample_idx = self.test_idx
         else:
             raise ValueError
+
+        if self.epoch == 0:
+            raise Exception("Model haven't been trained yet.")
 
         sample_idx = np.intersect1d(self.dataset.get_comb_idx(omic_combn), sample_idx)
         dl = DataLoader(
@@ -118,7 +158,176 @@ class Cobolt:
             elif what == "topic_prop":
                 latent += [self.model.get_topic_prop(x, elbo_bool=omic_combn)]
         res = np.concatenate(latent)
+        if return_barcode:
+            return res, self.dataset.get_barcode()[sample_idx]
         return res
+
+    def calc_all_latent(self, target=None):
+        n_modality = len(self.dataset.omic)
+        if target is None:
+            target = [True] * n_modality
+        target_dt, target_barcode = self.get_latent(target, return_barcode=True)
+        dt_corrected = [target_dt]
+        barcode_corrected = target_barcode
+        for i, x in enumerate(self.dataset.omic):
+            om_combn = [False] * n_modality
+            om_combn[i] = True
+            raw_dt, raw_barcode = self.get_latent(om_combn, return_barcode=True)
+            bool_train = np.isin(raw_barcode, target_barcode)
+            bool_test = ~np.isin(raw_barcode, barcode_corrected)
+            raw_dt_train = raw_dt[bool_train, ]
+            raw_dt_test = raw_dt[bool_test]
+            raw_bc_train = raw_barcode[bool_train]
+            raw_bc_test = raw_barcode[bool_test]
+            barcode_dict = {x: i for i, x in enumerate(raw_bc_train)}
+            reorder = [barcode_dict[i] for i in target_barcode]
+            raw_dt_train = raw_dt_train[reorder, ]
+            this_predicted = []
+            for i in range(self.n_latent):
+                xgb_model = XGBRegressor()
+                xgb_model.fit(X=raw_dt_train, y=target_dt[:, i].copy())
+                this_predicted.append(xgb_model.predict(raw_dt_test))
+            dt_corrected.append(np.asarray(this_predicted).T)
+            barcode_corrected = np.concatenate((barcode_corrected, raw_bc_test))
+        dt_corrected = np.vstack(dt_corrected)
+        dt_corrected = (dt_corrected.T - np.mean(dt_corrected, axis=1)).T
+        self.latent = {
+            "latent": dt_corrected,
+            "barcode": barcode_corrected,
+            "epoch": self.epoch
+        }
+
+    def calc_all_latent_raw(self):
+        n_modality = len(self.dataset.omic)
+        dt, barcode = self.get_latent([True] * n_modality, return_barcode=True)
+        posterior = ["joint"] * len(barcode)
+        for i, x in enumerate(self.dataset.omic):
+            om_combn = [False] * n_modality
+            om_combn[i] = True
+            raw_dt, raw_barcode = self.get_latent(om_combn, return_barcode=True)
+            dt = np.vstack((dt, raw_dt))
+            barcode = np.concatenate((barcode, raw_barcode))
+            posterior.extend([x] * len(raw_barcode))
+        self.latent_raw = {
+            "latent": dt,
+            "barcode": barcode,
+            "posterior": np.asarray(posterior),
+            "epoch": self.epoch
+        }
+
+    def get_all_latent(self, correction=True):
+        if correction:
+            if not self.latent or self.latent["epoch"] != self.epoch:
+                self.calc_all_latent()
+            return self.latent["latent"], self.latent["barcode"]
+        else:
+            if not self.latent_raw or self.latent["epoch"] != self.epoch:
+                self.calc_all_latent_raw()
+            return self.latent_raw["latent"], self.latent_raw["barcode"], self.latent_raw["posterior"]
+
+    def run_UMAP(self,
+                 correction=True,
+                 n_components=2,
+                 n_neighbors=30,
+                 min_dist=0.1,
+                 metric='euclidean'):
+        print("Running UMAP {} latent variable correction.".format("with" if correction else "without"))
+        dt = self.get_all_latent(correction=correction)
+        latent = dt[0]
+        reducer = umap.UMAP(
+            n_neighbors=n_neighbors,
+            min_dist=min_dist,
+            n_components=n_components,
+            metric=metric
+        )
+        embedding = reducer.fit_transform(latent)
+        if correction:
+            self.reduction["UMAP" + str(n_components)] = {
+                "embedding": embedding,
+                "barcode": dt[1],
+                "epoch": self.epoch
+            }
+        else:
+            self.reduction_raw["UMAP" + str(n_components)] = {
+                "embedding": embedding,
+                "barcode": dt[1],
+                "posterior": dt[2],
+                "epoch": self.epoch
+            }
+
+    def run_tSNE(self, correction=True, perplexity=30):
+        print("Running tSNE {} latent variable correction.".format("with" if correction else "without"))
+        dt = self.get_all_latent(correction=correction)
+        latent = dt[0]
+        embedding = TSNE(n_components=2, perplexity=perplexity).fit_transform(latent)
+        if correction:
+            self.reduction["tSNE"] = {
+                "embedding": embedding,
+                "barcode": dt[1],
+                "epoch": self.epoch
+            }
+        else:
+            self.reduction_raw["tSNE"] = {
+                "embedding": embedding,
+                "barcode": dt[1],
+                "posterior": dt[2],
+                "epoch": self.epoch
+            }
+
+    def clustering(self, k=20, algo="leiden", resolution=1, seed=0):
+        if not self.cluster_model or not self.cluster_model.check_version(k, self.epoch):
+            self.cluster_model = ClusterUtil(k=k, key=self.epoch)
+            dt = self.get_all_latent(correction=True)
+            latent = dt[0]
+            self.cluster_model.fit(latent)
+        if algo == "leiden":
+            self.cluster_model.run_leiden(resolution=resolution, seed=seed)
+        else:
+            raise ValueError("Clustering algorithm not supported.")
+
+    def get_clusters(self, algo="leiden", resolution=1):
+        return self.cluster_model.get_clusters(algo, resolution)
+
+    def scatter_plot(self,
+                     reduc="UMAP",
+                     algo="leiden",
+                     resolution=1,
+                     correction=True,
+                     annotation=None,
+                     s=1,
+                     figsize=(10, 5)):
+        # TODO: add meta data
+        if correction:
+            use_reduc = self.reduction
+        else:
+            use_reduc = self.reduction_raw
+
+        if reduc == "UMAP":
+            if "UMAP2" not in use_reduc or use_reduc["UMAP2"]["epoch"] != self.epoch:
+                self.run_UMAP(correction=correction)
+            dt = use_reduc["UMAP2"]["embedding"]
+            barcode = use_reduc["UMAP2"]["barcode"]
+        elif reduc == "tSNE":
+            if "tSNE" not in use_reduc or use_reduc["tSNE"]["epoch"] != self.epoch:
+                self.run_tSNE(correction=correction)
+            dt = use_reduc["tSNE"]["embedding"]
+            barcode = use_reduc["tSNE"]["barcode"]
+        else:
+            raise ValueError("Reduction must be UMAP or tSNE")
+
+        if annotation is None:
+            annotation = self.get_clusters(algo, resolution)
+            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
+            scatter1 = ax1.scatter(dt[:, 0], dt[:, 1], c=annotation, s=s, cmap=matplotlib.cm.rainbow)
+            ax1.legend(*scatter1.legend_elements(), loc="upper left", title="Cluster")
+            datasource = np.array([self.dataset.dataset[b] for b in barcode])
+            for i in np.unique(datasource):
+                mask = datasource == i
+                ax2.scatter(dt[mask, 0], dt[mask, 1], label=i, s=s)
+            ax2.legend(loc="upper left", title="Dataset")
+            fig.show()
+        else:
+            raise NotImplementedError
 
     def get_train_omic(self, sample=5):
         n_omic = len(self.dataset.omic)

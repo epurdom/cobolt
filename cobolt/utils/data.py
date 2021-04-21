@@ -8,17 +8,18 @@ import numpy as np
 
 class SingleData(object):
 
-    def __init__(self, feature_name, feature, count, barcode):
+    def __init__(self, feature_name, dataset_name, feature, count, barcode):
         """
         Create single-omic data from existing objects.
         """
         self.feature_name = feature_name
+        self.dataset_name = dataset_name
         self.feature = feature
         self.barcode = barcode
         self.count = count
 
     @classmethod
-    def from_file(cls, path, feature_name,
+    def from_file(cls, path, feature_name, dataset_name,
                   feature_file="features.tsv",
                   count_file="counts.mtx",
                   barcode_file="barcodes.tsv",
@@ -38,11 +39,11 @@ class SingleData(object):
             os.path.join(path, barcode_file),
             header=barcode_header, usecols=[barcode_column]
         )[0].values.astype('str')
-        return cls(feature_name, feature, count, barcode)
+        return cls(feature_name, dataset_name, feature, count, barcode)
 
     def __getitem__(self, items):
         x, y = items
-        return SingleData(self.feature_name, self.feature[x],
+        return SingleData(self.feature_name, self.dataset_name, self.feature[x],
                           self.count[x, y], self.barcode[y])
 
     def filter_features(self, min_count=10, min_cell=5, upper_quantile=1, lower_quantile=0):
@@ -72,8 +73,11 @@ class SingleData(object):
         self.count = self.count[bool_cells, ]
         self.barcode = self.barcode[bool_cells]
 
-    def _get_data(self):
+    def get_data(self):
         return {self.feature_name: self.count}, {self.feature_name: self.feature}, self.barcode
+
+    def get_dataset_name(self):
+        return self.dataset_name
 
 
 class MultiData(object):
@@ -81,33 +85,46 @@ class MultiData(object):
     def __init__(self, *single_data):
         self.data = {}
         for dt in single_data:
-            ct, ft, bc = dt._get_data()
+            ct, ft, bc = dt.get_data()
             for mod in ct.keys():
                 if mod not in self.data.keys():
-                    self.data[mod] = {'feature': [ft[mod]], 'barcode': [bc], 'counts': [ct[mod]]}
+                    self.data[mod] = {
+                        'feature': [ft[mod]],
+                        'barcode': [bc],
+                        'counts': [ct[mod]],
+                        'dataset': [dt.get_dataset_name()]
+                    }
                 else:
-                    self.data[mod]['feature'] += [ft[mod]]
-                    self.data[mod]['barcode'] += [bc]
-                    self.data[mod]['counts'] += [ct[mod]]
+                    self.data[mod]['feature'].append(ft[mod])
+                    self.data[mod]['barcode'].append(bc)
+                    self.data[mod]['counts'].append(ct[mod])
+                    self.data[mod]['dataset'].append(dt.get_dataset_name())
         for mod in self.data.keys():
-            self.data[mod] = self._merge_modality(self.data[mod])
+            self.data[mod] = merge_modality(self.data[mod])
 
-    def _merge_modality(self, dt):
-        batch = [np.zeros(x.shape) + i for i, x in enumerate(dt['barcode'])]
-        batch = np.concatenate(batch)
-        barcode = np.concatenate(dt['barcode'])
-
-        feature = dt['feature'][0]
-        for f in dt['feature'][1:]:
-            feature = np.intersect1d(feature, f)
-
-        counts = []
-        for i in range(len(dt['counts'])):
-            common = np.intersect1d(feature, dt['feature'][i], return_indices=True)
-            counts += [ dt['counts'][i][:, common[2]] ]
-        counts = sparse.vstack(counts)
-
-        return {'feature': feature, 'counts': counts, 'barcode': barcode, 'dataset': batch}
-
-    def _get_data(self):
+    def get_data(self):
         return self.data
+
+
+def merge_modality(dt):
+    batch = [np.zeros(x.shape) + i for i, x in enumerate(dt['barcode'])]
+    batch = np.concatenate(batch)
+    barcode = np.concatenate(dt['barcode'])
+
+    feature = dt['feature'][0]
+    for f in dt['feature'][1:]:
+        feature = np.intersect1d(feature, f)
+
+    counts = []
+    for i in range(len(dt['counts'])):
+        common = np.intersect1d(feature, dt['feature'][i], return_indices=True)
+        counts += [dt['counts'][i][:, common[2]]]
+    counts = sparse.vstack(counts)
+
+    return {
+        'feature': feature,
+        'counts': counts,
+        'barcode': barcode,
+        'dataset': batch,
+        'dataset_name': dt['dataset']
+    }
