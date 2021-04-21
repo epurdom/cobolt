@@ -20,11 +20,39 @@ from typing import List
 
 
 class Cobolt:
+    """
+    A Cobolt model
 
+    Parameters
+    ----------
+    dataset
+        A MultiomicDataset object.
+    n_latent
+        Number of latent variables used in the Cobolt model.
+    device:
+        The device on which the model will be trained, such as 'cpu' or 'cuda'.
+        If not specified, the device will be set to 'cuda' if available.
+    lr:
+        Learning rate for the Adam optimizer.
+    annealing_epochs:
+        Number of annealing epochs for the cost annealing scheme.
+    alpha:
+        Parameter of the Dirichlet prior distribution.
+    hidden_dims:
+        A list of integers indicating the number of hidden dimensions to use for
+        the encoder neural networks. The number of fully connected layers are
+        determined by the length of the list.
+    intercept_adj:
+        Whether to use the intercept term for batch correction.
+    slope_adj:
+        Whether to use the slope term for batch correction.
+    train_prop:
+        The proportion of random samples to use for training.
+    """
     def __init__(self,
                  dataset: MultiomicDataset,
                  n_latent: int,
-                 device = None,
+                 device: str = None,
                  lr: float = 0.005,
                  annealing_epochs: int = 30,
                  alpha: float = None,
@@ -32,7 +60,6 @@ class Cobolt:
                  intercept_adj: bool = True,
                  slope_adj: bool = True,
                  train_prop: float = 1):
-
         if device is None:
             self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         else:
@@ -84,6 +111,11 @@ class Cobolt:
             raise ValueError
 
     def train(self, num_epochs=100):
+        """
+
+        :param num_epochs:
+        :return:
+        """
         for epoch in tqdm(range(1, num_epochs + 1)):
             if self.epoch < self.annealing_epochs:
                 annealing_factor = float(self.epoch) / float(self.annealing_epochs)
