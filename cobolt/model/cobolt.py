@@ -29,24 +29,24 @@ class Cobolt:
         A MultiomicDataset object.
     n_latent
         Number of latent variables used in the Cobolt model.
-    device:
+    device
         The device on which the model will be trained, such as 'cpu' or 'cuda'.
         If not specified, the device will be set to 'cuda' if available.
-    lr:
+    lr
         Learning rate for the Adam optimizer.
-    annealing_epochs:
+    annealing_epochs
         Number of annealing epochs for the cost annealing scheme.
-    alpha:
+    alpha
         Parameter of the Dirichlet prior distribution.
-    hidden_dims:
+    hidden_dims
         A list of integers indicating the number of hidden dimensions to use for
         the encoder neural networks. The number of fully connected layers are
         determined by the length of the list.
-    intercept_adj:
+    intercept_adj
         Whether to use the intercept term for batch correction.
-    slope_adj:
+    slope_adj
         Whether to use the slope term for batch correction.
-    train_prop:
+    train_prop
         The proportion of random samples to use for training.
     """
     def __init__(self,
@@ -110,11 +110,15 @@ class Cobolt:
         else:
             raise ValueError
 
-    def train(self, num_epochs=100):
+    def train(self,
+              num_epochs: int = 100):
         """
+        Function for training the Cobolt model.
 
-        :param num_epochs:
-        :return:
+        Parameters
+        ----------
+        num_epochs
+            Number of epochs/iterations.
         """
         for epoch in tqdm(range(1, num_epochs + 1)):
             if self.epoch < self.annealing_epochs:
@@ -194,7 +198,18 @@ class Cobolt:
             return res, self.dataset.get_barcode()[sample_idx]
         return res
 
-    def calc_all_latent(self, target=None):
+    def calc_all_latent(self,
+                        target: List[bool] = None):
+        """
+        Calculate the latent variable estimation.
+
+        Parameters
+        ----------
+        target
+            A list of boolean indicating which posterior distribution is used
+            as benchmark for correction.
+
+        """
         n_modality = len(self.dataset.omic)
         if target is None:
             target = [True] * n_modality
