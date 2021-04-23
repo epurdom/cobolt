@@ -69,6 +69,13 @@ class MultiomicDataset(torch.utils.data.Dataset):
         return self.barcode
 
     def get_comb_idx(self, omic_combn):
+        if not any(omic_combn):
+            raise ValueError("Omics combination can not be all False.")
+        if len(omic_combn) != len(self.get_feature_shape()):
+            raise ValueError(
+                "omic_combn should be a boolean list of length {}".format(
+                    len(self.get_feature_shape())))
+
         bl = [self.dt[om]['barcode'] for om, include in zip(self.omic, omic_combn) if include]
         b = bl[0]
         for x in bl[1:]:
