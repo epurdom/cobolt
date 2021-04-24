@@ -321,14 +321,16 @@ class Cobolt:
                 "epoch": self.epoch
             }
 
-    def clustering(self, k=20, algo="leiden", resolution=1, seed=0):
+    def clustering(self, k=20, algo="leiden", resolution=1, seed=0, overwrite=False):
         if not self.cluster_model or not self.cluster_model.check_version(k, self.epoch):
             self.cluster_model = ClusterUtil(k=k, key=self.epoch)
             dt = self.get_all_latent(correction=True)
             latent = dt[0]
             self.cluster_model.fit(latent)
         if algo == "leiden":
-            self.cluster_model.run_leiden(resolution=resolution, seed=seed)
+            self.cluster_model.run_leiden(resolution=resolution, seed=seed, overwrite=overwrite)
+        elif algo == "louvain":
+            self.cluster_model.run_louvain(overwrite=overwrite)
         else:
             raise ValueError("Clustering algorithm not supported.")
 

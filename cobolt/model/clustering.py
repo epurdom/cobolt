@@ -20,22 +20,50 @@ class ClusterUtil:
         self.graph = graph_from_snn(self.snn_mat)
         self.cluster = {}
 
-    def run_louvain(self):
-        raise NotImplementedError
+    def run_louvain(self, overwrite=False):
+        """To test !!!!!!!!!!!!!!!!!!!!"""
+        key = 'louvain'
+        if key in self.cluster and not overwrite:
+            print("Clustering results already exist. To rerun, set overwrite to True.")
+        else:
+            print("Running Louvain clustering algorithm.")
+            undirected = self.graph.copy()
+            undirected.to_undirected(combine_edges='sum')
+            res = undirected.community_multilevel(
+                weights=self.graph.es['weight'],
+                return_levels=False
+            )
+            self.cluster[key] = np.array(res.membership)
 
-    def run_leiden(self, resolution=1, seed=0):
-        kwargs = {'weights': np.array(self.graph.es['weight']).astype(np.float64),
-                  'resolution_parameter': resolution}
-        partition = leidenalg.find_partition(
-            self.graph,
-            partition_type=leidenalg.RBConfigurationVertexPartition,
-            seed=seed,
-            **kwargs
-        )
-        self.cluster['leiden_{:.3f}'.format(resolution)] = partition.membership
+    def run_leiden(self, resolution=1, seed=0, overwrite=False):
+        key = 'leiden_{:.3f}'.format(resolution)
+        if key in self.cluster and not overwrite:
+            print("Clustering results already exist. To rerun, set overwrite to True.")
+        else:
+            print("Running Leiden clustering algorithm with resolution {:.3f}.".format(resolution))
+            kwargs = {'weights': np.array(self.graph.es['weight']).astype(np.float64),
+                      'resolution_parameter': resolution}
+            partition = leidenalg.find_partition(
+                self.graph,
+                partition_type=leidenalg.RBConfigurationVertexPartition,
+                seed=seed,
+                **kwargs
+            )
+            self.cluster[key] = np.array(partition.membership)
 
     def get_clusters(self, algo="leiden", resolution=1):
-        return self.cluster['{}_{:.3f}'.format(algo, resolution)]
+        if algo == "leiden":
+            key = '{}_{:.3f}'.format(algo, resolution)
+        elif algo == "louvain":
+            key = "louvain"
+        else:
+            raise ValueError("Clustering algorithm must be leiden or louvain.")
+        if key not in self.cluster:
+            if algo == "leiden":
+                self.run_leiden(resolution)
+            elif algo == "louvain":
+                self.run_louvain()
+        return self.cluster[key]
 
 
 def snn_from_data(latent, k):
