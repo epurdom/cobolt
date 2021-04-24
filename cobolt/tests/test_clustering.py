@@ -1,8 +1,6 @@
 
 import pytest
-import os
 import numpy as np
-import scipy
 from cobolt.model.clustering import ClusterUtil
 
 
