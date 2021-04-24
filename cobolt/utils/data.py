@@ -7,11 +7,28 @@ import numpy as np
 
 
 class SingleData(object):
+    """
+    A single modality of a single dataset
 
-    def __init__(self, feature_name, dataset_name, feature, count, barcode):
-        """
-        Create single-omic data from existing objects.
-        """
+    Parameters
+    ----------
+    feature_name
+        Name of the modality
+    dataset_name
+        Name of the dataset
+    feature
+        Array of length F containing feature names
+    count
+        Matrix of dimension BxF containing data counts
+    barcode
+        Array of length B containing cell barcode
+    """
+    def __init__(self,
+                 feature_name: str,
+                 dataset_name: str,
+                 feature: np.ndarray,
+                 count: sparse.csr.csr_matrix,
+                 barcode: np.ndarray):
         self.feature_name = feature_name
         self.dataset_name = dataset_name
         self.feature = feature
@@ -19,16 +36,52 @@ class SingleData(object):
         self.count = count
 
     @classmethod
-    def from_file(cls, path, feature_name, dataset_name,
-                  feature_file="features.tsv",
-                  count_file="counts.mtx",
-                  barcode_file="barcodes.tsv",
+    def from_file(cls,
+                  path: str,
+                  feature_name: str,
+                  dataset_name: str,
+                  feature_file: str = "features.tsv",
+                  count_file: str = "counts.mtx",
+                  barcode_file: str = "barcodes.tsv",
                   feature_header=None,
                   barcode_header=None,
-                  feature_column=0,
-                  barcode_column=0):
+                  feature_column: int = 0,
+                  barcode_column: int = 0):
         """
-        Creat single-omic data from files.
+        Read single modality of a single dataset from files. By default,
+        the files for feature names, cell barcodes, and the count
+        matrix are `features.tsv`, `counts.mtx`, and `barcodes.tsv`.
+
+        Parameters
+        ----------
+        path
+            The path to the directory with data files
+        feature_name
+            Name of the modality
+        dataset_name
+            Name of the dataset
+        feature_file
+            Name of a tab-separated file of the feature names
+        count_file
+            Name of the file of the count matrix
+        barcode_file
+            Name of a tab-separated file of the barcode
+        feature_header
+            Row number to use as column names for the feature file. If `None`,
+            no column names will be used.
+        barcode_header
+            Row number to use as column names for the barcode file. If `None`,
+            no column names will be used.
+        feature_column
+            The name or the index of the column stores the feature name
+            information in the feature file
+        barcode_column
+            The name or the index of the column stores the barcoe name
+            information in the barcode file
+
+        Returns
+        -------
+        A SingleOmic object
         """
         count = io.mmread(os.path.join(path, count_file)).T.tocsr().astype(float)
         feature = pd.read_csv(
