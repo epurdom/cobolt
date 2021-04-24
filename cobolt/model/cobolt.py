@@ -15,7 +15,7 @@ import umap
 import torch
 from torch.utils.data import DataLoader, Subset, SubsetRandomSampler
 import matplotlib.pyplot as plt
-import matplotlib
+from matplotlib import cm
 from typing import List
 
 
@@ -92,23 +92,6 @@ class Cobolt:
         self.reduction_raw = {}
         self.reduction = {}
         self.cluster_model = None
-
-    def __getitem__(self, item):
-        # TODO: to add this
-        if item == "latent":
-            return self.latent
-        elif item == "latent_raw":
-            return self.latent_raw
-        elif item == "umap":
-            return self.reduction
-        elif item == "tsne":
-            return self.reduction
-        elif item == "umap_raw":
-            return
-        elif item == "tsne_raw":
-            return
-        else:
-            raise ValueError
 
     def train(self,
               num_epochs: int = 100):
@@ -208,7 +191,6 @@ class Cobolt:
         target
             A list of boolean indicating which posterior distribution is used
             as benchmark for correction.
-
         """
         n_modality = len(self.dataset.omic)
         if target is None:
@@ -263,6 +245,24 @@ class Cobolt:
         }
 
     def get_all_latent(self, correction=True):
+        """
+        Return the latent variable estimation.
+
+        Parameters
+        ----------
+        correction
+            Whether to return the corrected latent variable estimation.
+
+        Returns
+        -------
+        latent
+            Latent variable estimation.
+        barcode
+            Corresponding cell barcode of the latent variables.
+        posterior
+            Which posterior distribution is used for latent variable
+            estimation. Only provided if correction is set to `False`.
+        """
         if correction:
             if not self.latent or self.latent["epoch"] != self.epoch:
                 self.calc_all_latent()
@@ -278,6 +278,29 @@ class Cobolt:
                  n_neighbors=30,
                  min_dist=0.1,
                  metric='euclidean'):
+        """
+        Run UMAP on the latent variable estimation.
+
+        Parameters
+        ----------
+        correction
+            Whether to use corrected latent variables.
+        n_components
+            The dimension of the space to embed into, which is usually set to
+            2 or 3.
+        n_neighbors
+            The size of the neighborhood for UMAP.
+        min_dist:
+            The effective minimum distance between embeded points.
+        metric:
+            The metric to use to compute distances for UMAP.
+
+        Notes
+        -----
+            `n_components`, `n_neighbors`, `min_dist`, and `metric` are UMAP
+            parameters. We direct users to python package `umap` for additional
+            details.
+        """
         print("Running UMAP {} latent variable correction.".format("with" if correction else "without"))
         dt = self.get_all_latent(correction=correction)
         latent = dt[0]
@@ -322,6 +345,26 @@ class Cobolt:
             }
 
     def clustering(self, k=20, algo="leiden", resolution=1, seed=0, overwrite=False):
+        """
+        Run clustering on the corrected latent variables.
+
+        Parameters
+        ----------
+        k
+            Number of nearest neighbors to use in the KNN graph construction.
+        algo
+            Clustering algorithm to use. Available options are "leiden" or
+            "louvain".
+        resolution
+            Clustering resolution to use for leiden clustering. Not used if algo
+            is set to "louvain".
+        seed
+            Random seed to use for leiden clustering. Not used if algo is set
+            to "louvain".
+        overwrite
+            Whether to overwrite previous results with the same clustering
+            parameters.
+        """
         if not self.cluster_model or not self.cluster_model.check_version(k, self.epoch):
             self.cluster_model = ClusterUtil(k=k, key=self.epoch)
             dt = self.get_all_latent(correction=True)
@@ -334,8 +377,37 @@ class Cobolt:
         else:
             raise ValueError("Clustering algorithm not supported.")
 
-    def get_clusters(self, algo="leiden", resolution=1):
-        return self.cluster_model.get_clusters(algo, resolution)
+    def get_clusters(self, algo="leiden", resolution=1, return_barcode=False):
+        """
+        Return the clustering results.
+
+        Parameters
+        ----------
+        algo
+            Clustering algorithm to use. Available options are "leiden" or
+            "louvain".
+        resolution
+            Clustering resolution to use for leiden clustering. Not used if algo
+            is set to "louvain".
+        return_barcode
+            Whether to return the cells barcode.
+
+        Returns
+        -------
+        clusters
+            An integer array indicating the clustering results.
+        barcode
+            An array of cell barcode. Only provided if `return_barcode` is set
+            to `True`.
+        """
+        if not self.cluster_model:
+            print("Clustering has not been run yet. Call `clustering` function first.")
+        else:
+            if return_barcode:
+                latent, barcode = self.get_all_latent(correction=True)
+                return self.cluster_model.get_clusters(algo, resolution), barcode
+            else:
+                return self.cluster_model.get_clusters(algo, resolution)
 
     def scatter_plot(self,
                      reduc="UMAP",
@@ -345,7 +417,6 @@ class Cobolt:
                      annotation=None,
                      s=1,
                      figsize=(10, 5)):
-        # TODO: add meta data
         if correction:
             use_reduc = self.reduction
         else:
@@ -367,7 +438,7 @@ class Cobolt:
         if annotation is None:
             annotation = self.get_clusters(algo, resolution)
             fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
-            scatter1 = ax1.scatter(dt[:, 0], dt[:, 1], c=annotation, s=s, cmap=matplotlib.cm.rainbow)
+            scatter1 = ax1.scatter(dt[:, 0], dt[:, 1], c=annotation, s=s, cmap=cm.rainbow)
             ax1.legend(*scatter1.legend_elements(), loc="upper left", title="Cluster")
             datasource = np.array([self.dataset.dataset[b] for b in barcode])
             for i in np.unique(datasource):
