@@ -45,9 +45,4 @@ c1 = model.get_clusters("louvain")
 model.clustering(algo="leiden", resolution=0.5)
 c2 = model.get_clusters("leiden", 0.5)
 
-import matplotlib
-matplotlib.use("TkAgg")  # Do this before importing pyplot!
-import matplotlib.pyplot as plt
-
 model.scatter_plot(reduc="UMAP", correction=True)
-
