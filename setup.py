@@ -23,7 +23,7 @@ setuptools.setup(
     install_requires=[
         'numpy',
         'scipy',
-        'pytorch',
+        'torch',
         'umap-learn',
         'python-igraph',
         'sklearn',
