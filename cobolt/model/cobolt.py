@@ -111,14 +111,15 @@ class Cobolt:
 
             this_loss = []
             for omics in self.train_omic:
+                this_idx = np.intersect1d(self.dataset.get_comb_idx(omics), self.train_idx)
+                if len(this_idx) == 0:
+                    continue
                 dt_loader = DataLoader(
                     dataset=self.dataset,
                     batch_size=128,
                     collate_fn=lambda x: collate_wrapper(x, omics),
-                    sampler=SubsetRandomSampler(
-                        np.intersect1d(self.dataset.get_comb_idx(omics), self.train_idx)
-                    ))
-                this_size = len(np.intersect1d(self.dataset.get_comb_idx(omics), self.train_idx))
+                    sampler=SubsetRandomSampler(this_idx))
+                this_size = len(this_idx)
                 for x in dt_loader:
                     # Forward pass
                     x = [[x_i.to(self.device) if x_i is not None else None for x_i in y] for y in x]
@@ -129,9 +130,9 @@ class Cobolt:
                     loss.backward()
                     self.optimizer.step()
 
-                    this_loss.append(latent_loss.item() + recon_loss.item())
+                    this_loss.append((latent_loss.item() + recon_loss.item())/this_size)
 
-            self.history['loss'].append(sum(this_loss)/this_size)
+            self.history['loss'].append(sum(this_loss))
             self.epoch += 1
 
             if np.isnan(self.history['loss'][-1]):
@@ -204,20 +205,21 @@ class Cobolt:
             raw_dt, raw_barcode = self.get_latent(om_combn, return_barcode=True)
             bool_train = np.isin(raw_barcode, target_barcode)
             bool_test = ~np.isin(raw_barcode, barcode_corrected)
-            raw_dt_train = raw_dt[bool_train, ]
-            raw_dt_test = raw_dt[bool_test]
-            raw_bc_train = raw_barcode[bool_train]
-            raw_bc_test = raw_barcode[bool_test]
-            barcode_dict = {x: i for i, x in enumerate(raw_bc_train)}
-            reorder = [barcode_dict[i] for i in target_barcode]
-            raw_dt_train = raw_dt_train[reorder, ]
-            this_predicted = []
-            for i in range(self.n_latent):
-                xgb_model = XGBRegressor()
-                xgb_model.fit(X=raw_dt_train, y=target_dt[:, i].copy())
-                this_predicted.append(xgb_model.predict(raw_dt_test))
-            dt_corrected.append(np.asarray(this_predicted).T)
-            barcode_corrected = np.concatenate((barcode_corrected, raw_bc_test))
+            if sum(bool_test) != 0:
+                raw_dt_train = raw_dt[bool_train, ]
+                raw_dt_test = raw_dt[bool_test]
+                raw_bc_train = raw_barcode[bool_train]
+                raw_bc_test = raw_barcode[bool_test]
+                barcode_dict = {x: i for i, x in enumerate(raw_bc_train)}
+                reorder = [barcode_dict[i] for i in target_barcode]
+                raw_dt_train = raw_dt_train[reorder, ]
+                this_predicted = []
+                for i in range(self.n_latent):
+                    xgb_model = XGBRegressor()
+                    xgb_model.fit(X=raw_dt_train, y=target_dt[:, i].copy())
+                    this_predicted.append(xgb_model.predict(raw_dt_test))
+                dt_corrected.append(np.asarray(this_predicted).T)
+                barcode_corrected = np.concatenate((barcode_corrected, raw_bc_test))
         dt_corrected = np.vstack(dt_corrected)
         dt_corrected = (dt_corrected.T - np.mean(dt_corrected, axis=1)).T
         self.latent = {

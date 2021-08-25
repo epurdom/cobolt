@@ -40,7 +40,7 @@ class MultiomicDataset(torch.utils.data.Dataset):
             for i, om in enumerate(self.omic)])
         s3 = "Joint cells:\n"
         joint_omic = [list(i) for i in itertools.product([False, True], repeat=n_modality) if sum(i) > 1]
-        s4 = "".join(["- {}: {} cells.".format(
+        s4 = "\n".join(["- {}: {} cells.".format(
             ", ".join([om for i, om in enumerate(self.omic) if om_combn[i]]),
             len(self.get_comb_idx(om_combn)))
             for om_combn in joint_omic])
