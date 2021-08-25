@@ -31,9 +31,15 @@ class SingleData(object):
                  barcode: np.ndarray):
         self.feature_name = feature_name
         self.dataset_name = dataset_name
+        unique_feature, feature_idx = np.unique(feature, return_index=True)
+        if len(feature) != len(unique_feature):
+            print("Removing duplicated features.")
+            feature = unique_feature
+            count = count[:, feature_idx]
         self.feature = feature
         self.barcode = barcode
         self.count = count
+        self.is_valid()
 
     @classmethod
     def from_file(cls,
@@ -99,6 +105,13 @@ class SingleData(object):
         return SingleData(self.feature_name, self.dataset_name, self.feature[x],
                           self.count[x, y], self.barcode[y])
 
+    def __str__(self):
+        return "A SingleData object.\n" + \
+               "Dataset name: {}. Feature name: {}.\n".format(
+                   self.dataset_name, self.feature_name) + \
+               "Number of features: {}. Number of cells {}.".format(
+                   str(len(self.feature)), str(len(self.barcode)))
+
     def filter_features(self, min_count=10, min_cell=5, upper_quantile=1, lower_quantile=0):
         feature_count = np.sum(self.count, axis=0)
         feature_n = np.sum(self.count != 0, axis=0)
@@ -123,14 +136,33 @@ class SingleData(object):
 
     def filter_barcode(self, cells):
         bool_cells = np.isin(self.barcode, cells)
-        self.count = self.count[bool_cells, ]
+        self.count = self.count[bool_cells, :]
         self.barcode = self.barcode[bool_cells]
+
+    def subset_features(self, feature):
+        bool_features = np.isin(self.feature, feature)
+        self.count = self.count[:, bool_features]
+        self.feature = self.feature[bool_features]
+
+    def rename_features(self, feature):
+        unique_feature, feature_idx = np.unique(feature, return_index=True)
+        if len(feature) != len(unique_feature):
+            print("Removing duplicated features.")
+            feature = unique_feature
+            self.count = self.count[:, feature_idx]
+        self.feature = np.array(feature)
 
     def get_data(self):
         return {self.feature_name: self.count}, {self.feature_name: self.feature}, self.barcode
 
     def get_dataset_name(self):
         return self.dataset_name
+
+    def is_valid(self):
+        if self.count.shape[0] != self.barcode.shape[0]:
+            raise ValueError("The dimensions of the count matrix and the barcode array are not consistent.")
+        if self.count.shape[1] != self.feature.shape[0]:
+            raise ValueError("The dimensions of the count matrix and the barcode array are not consistent.")
 
 
 class MultiData(object):
