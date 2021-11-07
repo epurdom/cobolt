@@ -32,7 +32,7 @@ class CoboltModel(nn.Module):
                  loss_type: str = 'B',
                  intercept_adj: bool = True,
                  slope_adj: bool = True,
-                 log = False):
+                 log: bool = True):
         super(CoboltModel, self).__init__()
 
         self.latent_dim = latent_dim
