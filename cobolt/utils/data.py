@@ -37,7 +37,7 @@ class SingleData(object):
             feature = unique_feature
             count = count[:, feature_idx]
         self.feature = feature
-        self.barcode = barcode
+        self.barcode = np.array([dataset_name + "~" + x for x in barcode])
         self.count = count
         self.is_valid()
 
