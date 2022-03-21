@@ -18,12 +18,12 @@ Details of the method can be found in the manuscript on [bioRxiv](https://www.bi
 To install Cobolt from GitHub, run the following:
 
 ```bash
-pip install git+https://github.com/boyinggong/cobolt.git#egg=cobolt
+pip install git+https://github.com/epurdom/cobolt.git#egg=cobolt
 ```
 
 ## Tutorials
 
-- [Integrating multi-modality platforms with single-modality platforms](https://github.com/boyinggong/cobolt/blob/master/docs/tutorial.ipynb)
+- [Integrating multi-modality platforms with single-modality platforms](https://github.com/epurdom/cobolt/blob/master/docs/tutorial.ipynb)
 
 ## Bug Reports
 
