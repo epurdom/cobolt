@@ -27,4 +27,4 @@ pip install git+https://github.com/epurdom/cobolt.git#egg=cobolt
 
 ## Bug Reports
 
-Cobolt is in active development. Submit bug reports and make feature requests by opening a issue [here](https://github.com/boyinggong/cobolt/issues).
+Cobolt is in active development. Submit bug reports and make feature requests by opening a issue [here](https://github.com/epurdom/cobolt/issues).
