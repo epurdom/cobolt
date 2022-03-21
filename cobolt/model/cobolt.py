@@ -55,6 +55,7 @@ class Cobolt:
                  device: str = None,
                  lr: float = 0.005,
                  annealing_epochs: int = 30,
+                 batch_size: int = 128,
                  alpha: float = None,
                  hidden_dims: List = None,
                  intercept_adj: bool = True,
@@ -67,6 +68,7 @@ class Cobolt:
         self.lr = lr
         self.epoch = 0
         self.annealing_epochs = annealing_epochs
+        self.batch_size = batch_size,
         self.history = {"loss": []}
 
         self.dataset = dataset
@@ -116,7 +118,7 @@ class Cobolt:
                     continue
                 dt_loader = DataLoader(
                     dataset=self.dataset,
-                    batch_size=128,
+                    batch_size=self.batch_size,
                     collate_fn=lambda x: collate_wrapper(x, omics),
                     sampler=SubsetRandomSampler(this_idx))
                 this_size = len(this_idx)
