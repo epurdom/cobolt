@@ -68,7 +68,7 @@ class Cobolt:
         self.lr = lr
         self.epoch = 0
         self.annealing_epochs = annealing_epochs
-        self.batch_size = batch_size,
+        self.batch_size = batch_size
         self.history = {"loss": []}
 
         self.dataset = dataset
