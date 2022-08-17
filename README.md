@@ -15,7 +15,7 @@ Details of the method can be found in the manuscript on [bioRxiv](https://www.bi
 
 ## Installation
 
-To install Cobolt from GitHub, run the following:
+Cobolt requires Python v3.8 or higher. To install Cobolt from GitHub, run the following:
 
 ```bash
 pip install git+https://github.com/epurdom/cobolt.git#egg=cobolt
