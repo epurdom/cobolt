@@ -29,7 +29,6 @@ setuptools.setup(
         'sklearn',
         'xgboost'
     ],
-    package_dir={"": "cobolt"},
-    packages=setuptools.find_packages(where=""),
+    packages=setuptools.find_packages(exclude=['cobolt.tests']),
     python_requires=">=3.7",
 )
