@@ -63,8 +63,8 @@ class TestSingleData:
         feature_name = "a"
         ja, jb, sa, sb = load_test_data()
         ja.filter_barcode(cells=[
-            '09A_CAGCCCCGCCTT',
-            '09A_CGCCTACCATGA'
+            'joint~09A_CAGCCCCGCCTT',
+            'joint~09A_CGCCTACCATGA'
         ])
         count, feature, barcode = ja.get_data()
         assert count[feature_name].shape == (2, 100)
