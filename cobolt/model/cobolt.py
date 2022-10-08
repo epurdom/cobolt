@@ -438,20 +438,18 @@ class Cobolt:
             barcode = use_reduc["tSNE"]["barcode"]
         else:
             raise ValueError("Reduction must be UMAP or tSNE")
-
+            
         if annotation is None:
             annotation = self.get_clusters(algo, resolution)
-            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
-            scatter1 = ax1.scatter(dt[:, 0], dt[:, 1], c=annotation, s=s, cmap=cm.rainbow)
-            ax1.legend(*scatter1.legend_elements(), loc="upper left", title="Cluster")
-            datasource = np.array([self.dataset.dataset[b] for b in barcode])
-            for i in np.unique(datasource):
-                mask = datasource == i
-                ax2.scatter(dt[mask, 0], dt[mask, 1], label=i, s=s)
-            ax2.legend(loc="upper left", title="Dataset")
-            fig.show()
-        else:
-            raise NotImplementedError
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
+        scatter1 = ax1.scatter(dt[:, 0], dt[:, 1], c=annotation, s=s, cmap=cm.rainbow)
+        ax1.legend(*scatter1.legend_elements(), loc="upper left", title="Cluster")
+        datasource = np.array([self.dataset.dataset[b] for b in barcode])
+        for i in np.unique(datasource):
+            mask = datasource == i
+            ax2.scatter(dt[mask, 0], dt[mask, 1], label=i, s=s)
+        ax2.legend(loc="upper left", title="Dataset")
+        fig.show()
 
     def get_train_omic(self, sample=5):
         n_omic = len(self.dataset.omic)
