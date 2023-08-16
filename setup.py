@@ -26,7 +26,7 @@ setuptools.setup(
         'torch',
         'umap-learn',
         'python-igraph',
-        'sklearn',
+        'scikit-learn',
         'xgboost',
         'pandas',
         'seaborn',
